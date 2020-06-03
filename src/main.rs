@@ -1,3 +1,4 @@
+use clap_conf::prelude::*;
 use rand::prelude::*;
 use std::io::Write;
 use termion::color::{Bg, Red, Reset};
@@ -28,6 +29,33 @@ fn drop_last_char(s: &mut String) {
 }
 
 fn main() {
+    let clap = clap_app!(Type_Tutor =>
+        (about:"A simple Typing Tutor")
+        (version:crate_version!())
+        (author:"Matthew Stoodley")
+        (@arg file: -f --file +takes_value "The file containing the words")
+        (@arg config: -c +takes_value "The locaion of the config file")
+    )
+    .get_matches();
+
+    let cfg = with_toml_env(&clap, vec!["{HOME}/.config/type_tutor/init.toml"]);
+
+    let word_list = match cfg.grab().arg("file").conf("file").done() {
+        Some(fname) => {
+            let fdata = std::fs::read_to_string(fname).expect("Could not read file");
+            fdata
+                .split("\n")
+                .map(|sp| sp.trim().to_string())
+                .collect::<Vec<String>>()
+        }
+        None => vec![
+            "please", "use", "-f", "to ", "select", "a", "word", "list", "file",
+        ]
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect(),
+    };
+
     let (ch_s, ch_r) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let stdin = std::io::stdin();
@@ -36,13 +64,12 @@ fn main() {
         }
     });
     let mut score = 0;
-    let mut lives = 5;
+    let mut lives = 6;
 
     let mut screen = std::io::stdout()
         .into_raw_mode()
         .expect("could not get raw mode");
 
-    let word_list = vec!["fad", "as", "dad", "lad", "had", "sag", "lag"];
     let mut words: Vec<Word> = Vec::new();
     let mut typing = String::new();
     let mut rng = rand::thread_rng();
@@ -74,7 +101,7 @@ fn main() {
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
         //maybe new word
-        if rng.gen_range(0, 100 + score) < 10 + score {
+        if rng.gen_range(0, 300 + score) < 20 + score {
             let y = rng.gen_range(2, 20);
             let s = word_list
                 .choose(&mut rng)
@@ -100,7 +127,7 @@ fn main() {
         //move words and kill words
 
         for w in &mut words {
-            if w.x > 0 && rng.gen_range(0, 350 + score) < 10 + score {
+            if w.x > 0 && rng.gen_range(0, 700 + score) < 20 + score {
                 w.x -= 1;
             }
             if w.x == 0 && !w.dead {
